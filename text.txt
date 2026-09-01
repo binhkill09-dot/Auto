@@ -1,0 +1,418 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local RemoteFunctions = ReplicatedStorage:WaitForChild("RemoteFunctions")
+local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+
+local localPlayer = Players.LocalPlayer
+local TOWER_NAME = "TV Man"
+local SPEAKER_TITAN_NAME = "Titan Speaker Man 2.0"
+local SPEAKER_TITAN_CFRAME = CFrame.new(-22.994033813476562, -2.730815887451172, 64.02381896972656)
+
+local NEW_SPEAKER_TITAN_CFRAME = CFrame.new(-21.51429557800293, -2.7140278816223145, 4.071750640869141)
+
+local TV_TITAN_NAME = "Titan TV Man"
+local TV_TITAN_CFRAME = CFrame.new(-23.467937469482422, -2.920417308807373, 66.45667266845703)
+
+-- =========================================
+-- BẢNG GIÁ NÂNG CẤP CHUẨN XÁC 100%
+-- =========================================
+local TV_UPGRADE_COSTS = {
+    [1] = 200,   
+    [2] = 300,   
+    [3] = 450    
+}
+
+local SPEAKER_UPGRADE_COSTS = {
+    [1] = 1000, 
+    [2] = 2250, 
+    [3] = 3500  
+}
+
+local TV_TITAN_UPGRADE_COSTS = {
+    [1] = 1400, 
+    [2] = 1900, 
+    [3] = 2500  
+}
+
+-- =========================================
+-- TỌA ĐỘ 10 VỊ TRÍ TV MAN
+-- =========================================
+local POSITIONS = {
+    CFrame.new(-23.3694782, -4.96502972, 59.8523598, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.3648262, -4.96401787, 75.3646545, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-22.9115028, -4.96303082, 66.7393036, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.1834469, -4.96602106, 56.3313522, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.6152534, -4.9653883, 63.8909264, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.9401588, -4.96275902, 71.8805923, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-22.900034, -4.96270084, 69.6099625, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.3197575, -4.96209002, 61.7391739, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.4254761, -4.96263599, 73.8258209, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+    CFrame.new(-23.0425186, -4.97359848, 53.572731, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+}
+
+-- =========================================
+-- HIỆU ỨNG THÔNG BÁO
+-- =========================================
+task.spawn(pcall, function()
+    local playerGui = CoreGui:FindFirstChild("CoreGui") or Players.LocalPlayer:WaitForChild("PlayerGui")
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BinhDepZaiEffect"
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = playerGui
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 0, 100)
+    textLabel.Position = UDim2.new(0, 0, 0.3, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "🔥 BÌNH ĐẸP ZAI: WAVE 60 (GIÂY 14) INSTANT MAX 🔥"
+    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.GothamBlack
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.Parent = screenGui
+
+    local startTime = tick()
+    local connection
+    connection = game:GetService("RunService").RenderStepped:Connect(function()
+        if tick() - startTime < 5 then
+            local hue = (tick() % 2) / 2
+            textLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+        else
+            screenGui:Destroy()
+            if connection then connection:Disconnect() end
+        end
+    end)
+end)
+
+-- =========================================
+-- HÀM HỖ TRỢ VÀ TÌM WAVE CHUẨN XÁC
+-- =========================================
+local function getPlayerMoney()
+    local function checkFolder(folder)
+        if not folder then return nil end
+        local cashNames = {"Cash", "Money", "Coins", "Tokens"}
+        for _, name in ipairs(cashNames) do
+            local val = folder:FindFirstChild(name)
+            if val and (val:IsA("IntValue") or val:IsA("NumberValue")) then
+                return val.Value
+            end
+        end
+        return nil
+    end
+    
+    local money = checkFolder(localPlayer:FindFirstChild("leaderstats")) or checkFolder(localPlayer)
+    return money or -1 
+end
+
+local function getTowerLevel(tower)
+    if not tower then return 1 end
+    local lvlObj = tower:FindFirstChild("Level") or tower:FindFirstChild("Upgrade")
+    if lvlObj and (lvlObj:IsA("IntValue") or lvlObj:IsA("NumberValue")) then
+        return lvlObj.Value
+    end
+    local attr = tower:GetAttribute("Level") or tower:GetAttribute("Upgrade")
+    if attr then return tonumber(attr) end
+    return 1 
+end
+
+local function getCurrentWave()
+    local playerGui = localPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return 1 end
+
+    for _, gui in ipairs(playerGui:GetDescendants()) do
+        if gui:IsA("TextLabel") or gui:IsA("TextButton") then
+            local text = gui.Text
+            if text and text ~= "" then
+                if string.find(text:lower(), "wave") then
+                    local num = tonumber(string.match(text, "%d+"))
+                    if num and num > 0 and num < 150 then
+                        return num
+                    end
+                end
+            end
+        end
+    end
+
+    for _, gui in ipairs(playerGui:GetDescendants()) do
+        if (gui:IsA("TextLabel") or gui:IsA("TextButton")) and gui.AbsolutePosition.Y < 250 then
+            local text = gui.Text
+            local num = tonumber(string.match(text, "^%s*(%d+)%s*$"))
+            if num and num > 0 and num < 150 then
+                return num
+            end
+        end
+    end
+
+    return 1
+end
+
+local function placeAndGetTowerSafe(name, cframe)
+    local oldTowers = workspace.Towers:GetChildren()
+    local placed = false
+    
+    while not placed do
+        local success, canPlace = pcall(function()
+            return RemoteFunctions.CanPlaceTower:InvokeServer(name)
+        end)
+        if success and canPlace then
+            local pSuccess = pcall(function()
+                RemoteFunctions.PlaceTower:InvokeServer(name, cframe)
+            end)
+            if pSuccess then
+                placed = true
+            end
+        else
+            task.wait(1)
+        end
+    end
+    
+    while true do
+        for _, tower in ipairs(workspace.Towers:GetChildren()) do
+            if tower.Name == name and not table.find(oldTowers, tower) then
+                return tower
+            end
+        end
+        task.wait(0.3)
+    end
+end
+
+local function upgradeTowerBulletproof(tower, costTable)
+    if not tower then return end
+    local totalLevels = #costTable
+    
+    for level = 1, totalLevels do
+        local cost = costTable[level]
+        local upgraded = false
+        local attempts = 0
+        
+        while not upgraded do
+            if not tower or not tower.Parent then return end
+            attempts = attempts + 1
+            
+            if attempts > 60 then
+                pcall(function() RemoteFunctions.UpgradeTower:InvokeServer(tower) end)
+                attempts = 0
+            end
+            
+            local currentCash = getPlayerMoney()
+            
+            if currentCash >= 0 then
+                if currentCash >= cost then
+                    pcall(function() RemoteFunctions.UpgradeTower:InvokeServer(tower) end)
+                    task.wait(1.5)
+                    upgraded = true
+                else
+                    task.wait(1)
+                end
+            else
+                local oldLevel = getTowerLevel(tower)
+                pcall(function() RemoteFunctions.UpgradeTower:InvokeServer(tower) end)
+                task.wait(2)
+                local newLevel = getTowerLevel(tower)
+                
+                if newLevel > oldLevel then
+                    upgraded = true
+                else
+                    task.wait(1)
+                end
+            end
+        end
+    end
+end
+
+-- Hàm nâng cấp siêu tốc trong vòng 2 giây
+local function superFastUpgradeTower(tower, costTable)
+    if not tower then return end
+    for level = 1, #costTable do
+        local upgraded = false
+        local startTime = tick()
+        while not upgraded and (tick() - startTime < 2) do
+            if not tower or not tower.Parent then return end
+            pcall(function()
+                RemoteFunctions.UpgradeTower:InvokeServer(tower)
+            end)
+            task.wait(0.05)
+            if getTowerLevel(tower) > level then
+                upgraded = true
+            end
+        end
+    end
+end
+
+-- =========================================
+-- MAIN LUỒNG CHẠY
+-- =========================================
+task.spawn(function()
+    pcall(function()
+        RemoteEvents.SetGameSpeed:FireServer(1.5)
+        print("⚡ Đã bật tốc độ x1.5")
+    end)
+
+    local placedTowers = {}
+
+    -- GIAI ĐOẠN 1: Đặt lần lượt 10 TV Man, mỗi con nâng cấp 1 lần
+    for i, posCFrame in ipairs(POSITIONS) do
+        print("\n--- [GĐ 1] Đặt TV Man #" .. i .. " / 10 ---")
+        local activeTower = placeAndGetTowerSafe(TOWER_NAME, posCFrame)
+        pcall(function() RemoteFunctions.UpgradeTower:InvokeServer(activeTower) end)
+        task.wait(1)
+        table.insert(placedTowers, activeTower)
+    end
+
+    print("\n=== HOÀN TẤT ĐẶT 10 CON, BẮT ĐẦU QUAY LẠI UP MAX TV MAN ===")
+
+    -- GIAI ĐOẠN 2: Lần lượt quay lại từng con từ 1 đến 10 để up max
+    for i, tower in ipairs(placedTowers) do
+        if tower and tower.Parent then
+            print("\n--- [GĐ 2] Đang up max TV Man #" .. i .. " / 10 ---")
+            upgradeTowerBulletproof(tower, TV_UPGRADE_COSTS)
+        end
+    end
+
+    print("\n=== ĐÃ MAX 10 TV MAN, BẮT ĐẦU ĐẶT 5 TITAN SPEAKER MAN ===")
+
+    -- GIAI ĐOẠN 3: Bán 5 TV Man để đặt 5 Titan Speaker Man 2.0 (Up max NHƯNG CHƯA ĐỔI MỤC TIÊU NGAY)
+    local speakerTowers = {}
+    for titanIndex = 1, 5 do
+        print("\n--- [GĐ 3] Quy trình Titan Speaker #" .. titanIndex .. " / 5 ---")
+        
+        if #placedTowers > 0 then
+            local randomIndex = math.random(1, #placedTowers)
+            local tvToSell = table.remove(placedTowers, randomIndex)
+            if tvToSell and tvToSell.Parent then
+                pcall(function()
+                    RemoteFunctions.SellTower:InvokeServer(tvToSell)
+                end)
+                print("-> Đã bán 1 TV Man lấy chỗ cho Titan Speaker!")
+                task.wait(1)
+            end
+        end
+
+        local activeTitan = placeAndGetTowerSafe(SPEAKER_TITAN_NAME, SPEAKER_TITAN_CFRAME)
+        print("-> Đã đặt Titan Speaker, đang tiến hành up max...")
+        upgradeTowerBulletproof(activeTitan, SPEAKER_UPGRADE_COSTS)
+        table.insert(speakerTowers, activeTitan)
+        print("-> [Thành công] Titan Speaker #" .. titanIndex .. " đã đạt MAX LV!")
+    end
+
+    print("\n=== ĐÃ HOÀN TẤT 5 TITAN SPEAKER, BẮT ĐẦU ĐẶT TITAN TV MAN ===")
+
+    -- GIAI ĐOẠN 4: Bán sạch các con TV Man còn lại để đặt Titan TV Man (Up max)
+    local activeTvTitan
+    while #placedTowers > 0 do
+        print("\n--- [GĐ 4] Đang chuyển đổi TV Man còn lại thành Titan TV Man ---")
+        
+        local tvToSell = table.remove(placedTowers, 1)
+        if tvToSell and tvToSell.Parent then
+            pcall(function()
+                RemoteFunctions.SellTower:InvokeServer(tvToSell)
+            end)
+            print("-> Đã bán 1 TV Man cuối để lấy chỗ đặt Titan TV!")
+            task.wait(1)
+        end
+
+        activeTvTitan = placeAndGetTowerSafe(TV_TITAN_NAME, TV_TITAN_CFRAME)
+        print("-> Đã đặt Titan TV Man, đang tiến hành up max...")
+        upgradeTowerBulletproof(activeTvTitan, TV_TITAN_UPGRADE_COSTS)
+        print("-> [Thành công] Đã up max Titan TV Man.")
+    end
+
+    -- GIAI ĐOẠN 5: CHỈ KHI CẢ 5 TITAN SPEAKER VÀ TITAN TV ĐÃ MAX, MỚI ĐỔI MỤC TIÊU CHO TITAN SPEAKER
+    print("\n=== [ĐIỀU KIỆN ĐẠT ĐỦ]: Max 5 Titan Speaker + Max Titan TV Man. Tiến hành đổi mục tiêu Speaker ===")
+    for _, titan in ipairs(speakerTowers) do
+        if titan and titan.Parent then
+            pcall(function()
+                RemoteFunctions.ChangeTargetMode:InvokeServer(titan)
+            end)
+            task.wait(0.2)
+        end
+    end
+    print("-> [Thành công] Đã đổi mục tiêu xong cho toàn bộ 5 Titan Speaker Man!")
+
+    print("\n=== ĐÃ HOÀN TẤT, ĐANG BẬT AUTO SKIP & CHỜ WAVE 60 ===")
+
+    -- GIAI ĐOẠN 6: Bật Auto Skip chạy ngầm
+    task.spawn(function()
+        while true do
+            pcall(function()
+                local currentWave = getCurrentWave()
+                RemoteEvents.SkipWaveVote:FireServer(currentWave)
+            end)
+            task.wait(2)
+        end
+    end)
+
+    -- Vòng lặp chờ game đạt tới Wave 60
+    while true do
+        local wave = getCurrentWave()
+        print("🔍 Đang kiểm tra Wave hiện tại: " .. wave)
+        
+        if wave >= 60 then
+            print("🚨 Đã chạm Wave 60! Đang đếm ngược đến giây thứ 14 của Wave 60...")
+            break
+        elseif wave >= 59 then
+            task.wait(0.5)
+        else
+            task.wait(2)
+        end
+    end
+
+    -- Đợi đúng đến giây thứ 14 của wave 60
+    task.wait(14)
+
+    -- GIAI ĐOẠN 7: Bán toàn bộ Titan Speaker Man cũ tại giây 14 wave 60
+    print("🧹 [Giây 14 Wave 60] Đang tiến hành bán toàn bộ Titan Speaker Man cũ...")
+    for _, tower in ipairs(workspace.Towers:GetChildren()) do
+        if tower.Name == SPEAKER_TITAN_NAME then
+            pcall(function()
+                RemoteFunctions.SellTower:InvokeServer(tower)
+            end)
+            task.wait(0.05)
+        end
+    end
+    task.wait(0.2)
+
+    -- GIAI ĐOẠN 8: Đặt nhanh 5 con Titan Speaker Man tại vị trí mới và nâng max siêu tốc trong 2 giây
+    print("\n=== ĐANG ĐẶT NHANH 5 TITAN SPEAKER MAN TẠI VỊ TRÍ MỚI ===")
+    local newSpeakerTowers = {}
+    for i = 1, 5 do
+        print("--- Đặt nhanh Titan Speaker #" .. i .. " / 5 ---")
+        local activeNewTitan = placeAndGetTowerSafe(SPEAKER_TITAN_NAME, NEW_SPEAKER_TITAN_CFRAME)
+        table.insert(newSpeakerTowers, activeNewTitan)
+        
+        -- Kích hoạt nâng cấp siêu tốc ngay lập tức cho từng con
+        task.spawn(function()
+            superFastUpgradeTower(activeNewTitan, SPEAKER_UPGRADE_COSTS)
+        end)
+    end
+
+    print("-> Đã đặt và đang nâng max siêu tốc độ cao trong 2 giây cho 5 Titan Speaker mới...")
+
+    -- Chờ tất cả 5 con mới đạt cấp tối đa
+    local allNewMaxed = false
+    while not allNewMaxed do
+        allNewMaxed = true
+        for _, spk in ipairs(newSpeakerTowers) do
+            if not spk or not spk.Parent or getTowerLevel(spk) < #SPEAKER_UPGRADE_COSTS then
+                allNewMaxed = false
+                break
+            end
+        end
+        task.wait(0.1)
+    end
+
+    -- KHI CẢ 5 SPEAKER MỚI ĐÃ MAX VÀ TITAN TV ĐÃ CÓ SẴN MAX, ĐỔI MỤC TIÊU CHO SPEAKER MỚI
+    print("\n=== [HOÀN TẤT]: 5 Titan Speaker mới đã max lv. Tiến hành đổi mục tiêu ===")
+    for _, titan in ipairs(newSpeakerTowers) do
+        if titan and titan.Parent then
+            pcall(function()
+                RemoteFunctions.ChangeTargetMode:InvokeServer(titan)
+            end)
+            task.wait(0.05)
+        end
+    end
+
+    print("\n=== BÌNH ĐẸP ZAI: HOÀN TẤT TOÀN BỘ CHIẾN THUẬT WAVE 60 (GIÂY 14) XUẤT SẮC! ===")
+end)
